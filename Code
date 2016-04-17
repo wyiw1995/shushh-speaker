@@ -1,0 +1,190 @@
+[code]
+//INDD 211| Critical Making: 3D Core Design Studio III
+//Emily Carr University of Art + Design | Spring 2016
+//Wendy (Qiwen) Ye
+//Shush Speaker
+//April 15th, 2016
+// Thanks to Bobbi Kozniuk and Garnet Hartz or this project wouldn't be here 
+//This is the code for the shush speaker project I'm doing. 
+/*The shush spekaer uses an Arduino uno with the Adafruit MP3 shield and 
+a micrphone to detect if someone is being too loud. It then plays a custom 
+pre-recorded track that has a salty and sassy additude. The tracks is 
+different base on the different readings. It will also keep playing 
+the track if the sound being detective does not drop to a certain 
+range. The speaker can also be used as a regular speaker through 
+bluetooth connection.*/
+
+/*  This is an example for the Adafruit VS1053 Codec Breakout
+
+  Designed specifically to work with the Adafruit VS1053 Codec Breakout 
+  ----> https://www.adafruit.com/products/1381
+
+  Adafruit invests time and resources providing this open source code, 
+  please support Adafruit and open-source hardware by purchasing 
+  products from Adafruit!
+
+  Written by Limor Fried/Ladyada for Adafruit Industries.  
+  BSD license, all text above must be included in any redistribution*/
+
+int readingstorage[100];                          // this is an array for sensor readings
+int readingvalue = 0;                             // readingvalue (formerly RN, readingnumber) what the initial reading is set to
+int readingindex = 0;                             // readingindex (formerly RC, readingcount)
+const int micPin = 2;                             // microphone sensor pin on the Arduino Uno
+const int btPin = 5;                            //bluetooth pin on the ardunio uno
+int reading = 0;                                  // this is what the initial reading of the micphone is set to
+int i = 0;                                        // this is a variable for a forloop
+int soundCase = 0;                                //this is what the initial soundcase is set to
+int thisreading =0;
+
+// include SPI, MP3 and SD libraries
+#include <SPI.h>
+#include <Adafruit_VS1053.h>
+#include <SD.h>
+
+// These are the pins used for the breakout example
+#define BREAKOUT_RESET  9                         // VS1053 reset pin (output)
+#define BREAKOUT_CS     10                        // VS1053 chip select pin (output)
+#define BREAKOUT_DCS    8                         // VS1053 Data/command select pin (output)
+
+// These are the pins used for the music maker shield
+#define SHIELD_RESET  -1                         // VS1053 reset SOUND1pin (unused!)
+#define SHIELD_CS     7                          // VS1053 chip select pin (output)
+#define SHIELD_DCS    6                          // VS1053 Data/command select pin (output)
+
+// These are common pins between breakout and shield
+#define CARDCS 4                                 // Card chip select pin
+// DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
+#define DREQ 3                                   // VS1053 Data request, ideally an Interrupt pin
+
+
+  
+
+Adafruit_VS1053_FilePlayer musicPlayer = 
+                                                  // create breakout-example object!
+                                                 //Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
+                                               // create shield-example object!
+  Adafruit_VS1053_FilePlayer(SHIELD_RESET, SHIELD_CS, SHIELD_DCS, DREQ, CARDCS);
+
+
+void setup() {
+  Serial.begin(9600);
+  pinMode (micPin, INPUT);                        //Define micpin as the input
+  pinMode (btPin, OUTPUT);                        //Define btpin as the output
+ // digitalWrite(micPin, LOW);
+  Serial.println("Adafruit VS1053 Library Test");
+  if (! musicPlayer.begin()) { // initialise the music player
+     Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
+     while (1);
+  }
+  Serial.println(F("VS1053 found"));
+  musicPlayer.sineTest(0x44, 500);            // Make a tone to indicate VS1053 is working
+  if (!SD.begin(CARDCS)) {
+    Serial.println(F("SD failed, or not present"));
+    while (1);  // don't do anything more
+  }
+  Serial.println("SD OK!");
+ // printDirectory(SD.open("/"), 0);             // list files 
+  musicPlayer.setVolume(1,1);               // Set volume for left, right channels. lower numbers == louder volume!
+ for (int i=0; i<=100; i++){
+   readingstorage[i]=0;
+ }
+}
+
+
+
+void loop() {
+
+/*  reading = digitalRead(micPin);                              // This reads what the sensor is on pin 12
+   if (reading == LOW) {                                     // If something is there, the do the following
+     readingstorage[readingvalue] = 1;                        // When high, then change RN to 1
+     } else {                                                 // otherwise 
+     readingstorage[readingvalue] = 0;                        // change RN to 0
+    }
+   readingvalue++;                                            // Take RN and add 1 to it
+   if (readingvalue>=100){                                   // If RN is greater than or equal to 100 then
+    readingvalue = 0;                                       // reset RN back to 0
+   } */
+  readingindex = 0;                                         // Set RC (index) to 0
+
+for(int i=0; i<100; i++){                                   // For 100 times, do this
+  reading = digitalRead (micPin);                            
+  if (reading == LOW){      
+    thisreading=1;
+  }else {
+    thisreading=0;
+  }
+  readingindex = readingindex + thisreading;
+  //readingindex = readingindex + readingstorage[i];        // shove RC into the readingstorage array at i
+  delay (1);
+  }
+  Serial.println(readingindex);                 // Prints out what RC is
+
+if (readingindex<=45){                        // If the reading from reading storage arry is above or equal to 75, do the following
+      soundCase = 0;                            //  Stay quit or play music from bluetooth
+      } else if(readingindex<=65){              // If the reading from reading storage arry is above or equal to 60, do the following
+          soundCase = 1;                        // Play track001 from mp3 shield 
+          } else if (readingindex<=85){         // If the reading from reading storage arry is above or equal to 45, do the following
+              soundCase = 2;                    // Play track002 from mp3 shield 
+            } else {                            // otherwise
+              soundCase = 3;                    // Play track003 from mp3 shield
+            }
+  
+  if (!musicPlayer.playingMusic) {
+      switch (soundCase){                                  
+      case 0:                                   // Quiet sound level, bluetooth sound playing
+      Serial.println("dark");
+      digitalWrite(btPin,LOW);
+      break;
+    case 1:                                     // Medium sound leve, sound track001 playing
+      Serial.println("dim");
+      digitalWrite (btPin,HIGH);
+      musicPlayer.playFullFile("TRACK001.MP3");
+      //delay(3000);
+      break;
+    case 2:                                     // Loud sound leve, sound track002 playing
+      Serial.println("medium");
+      digitalWrite (btPin,HIGH);
+      musicPlayer.playFullFile("TRACK002.MP3");
+     // delay(3000);
+      break;
+    case 3:                                     // Loud sound leve, sound track003 playing
+      Serial.println("bright");
+      digitalWrite (btPin,HIGH);
+      musicPlayer.playFullFile("TRACK003.MP3");
+      //delay(3000);
+      break;
+      }
+  }
+}  
+
+/*
+/// File listing helper
+void printDirectory(File dir, int numTabs) {
+   while(true) {
+     
+     File entry =  dir.openNextFile();
+     if (! entry) {
+       // no more files
+       //Serial.println("**nomorefiles**");
+       break;
+     }
+     for (uint8_t i=0; i<numTabs; i++) {
+       Serial.print('\t');
+     }
+     Serial.print(entry.name());
+     if (entry.isDirectory()) {
+       Serial.println("/");
+       printDirectory(entry, numTabs+1);
+     } else {
+       // s have sizes, directories do not
+       Serial.print("\t\t");
+       Serial.println(entry.size(), DEC);
+     }
+     entry.close();
+   }
+}
+
+
+*/
+
+[/code]
